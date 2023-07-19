@@ -1,0 +1,48 @@
+
+version: "3"
+
+services:
+
+  backend:
+    container_name: backend
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    image: backend
+    env_file: .env
+    ports:
+      - '4000:3001'
+    depends_on:
+      - database
+    restart: on-failure
+    networks:
+      - backend
+      
+  frontend:
+    container_name: frontend
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    image: frontend
+    ports:
+      - "8081:80"
+    restart: on-failure
+    networks:
+      - frontend
+
+  database:
+    container_name: postgres
+    image: postgres:15.3-alpine
+    restart:  on-failure
+    env_file: .env
+    volumes:
+      - postgres_data:/data/postgres
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+  frontend:
