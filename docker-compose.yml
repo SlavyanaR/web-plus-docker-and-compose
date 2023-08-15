@@ -11,7 +11,7 @@ services:
     image: backend
     env_file: .env
     ports:
-      - '3001:3000'
+      - '4000:3000'
     restart: always
     
   frontend:
@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile
     image: frontend
     ports:
-      - "8081:80"
+      - "3001:3000"
     restart: always
    
   postgres:
