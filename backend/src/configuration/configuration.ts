@@ -3,7 +3,7 @@ export default () => ({
     port: (process.env.PORT) || 3001,
   },
   database: {
-    host: process.env.DATABASE_HOST,
+    host: process.env.DATABASE_HOST || 'postgres',
     port: process.env.DATABASE_PORT || 5432,
     username: process.env.DATABASE_USERNAME || 'student',
     password: process.env.DATABASE_PASSWORD || 'student',
