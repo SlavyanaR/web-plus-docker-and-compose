@@ -27,7 +27,7 @@ services:
     networks:
       - backend-network
     ports:
-      - '4000:3000'
+      - '4001:4000'
     restart: always
 
   frontend:
