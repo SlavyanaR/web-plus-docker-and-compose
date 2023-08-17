@@ -1,69 +1,75 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { CreateOfferDto } from './dto/create-offer.dto';
-import { DataSource, Repository } from 'typeorm';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+import { User } from 'src/users/entities/user.entity';
+
+import { Wish } from 'src/wishes/entities/wish.entity';
+import { WishesService } from 'src/wishes/wishes.service';
+
 import { Offer } from './entities/offer.entity';
-import { WishesService } from '../wishes/wishes.service';
-import { User } from '../users/entities/user.entity';
-import queryRunner from '../utils/queryRunner';
+import { CreateOfferDto } from './dto/create-offer.dto';
 
 @Injectable()
 export class OffersService {
   constructor(
     @InjectRepository(Offer)
-    private readonly offerRepository: Repository<Offer>,
+    private readonly offersRepository: Repository<Offer>,
+    @InjectRepository(Wish)
+    private readonly wishesRepository: Repository<Wish>,
     private readonly wishesService: WishesService,
-    private readonly dataSource: DataSource,
   ) {}
 
-  async create(createOfferDto: CreateOfferDto, user: User): Promise<Offer> {
-    const { amount, hidden, itemId } = createOfferDto;
+  // создаем оффер
+  async create(user: User, createOfferDto: CreateOfferDto) {
+    const { itemId, amount, hidden } = createOfferDto;
+    const wish = await this.wishesService.findWish(itemId);
 
-    const item = await this.wishesService.findOne(itemId);
-
-    if (item.owner.id === user.id) {
-      throw new ForbiddenException( 'Вы не можете вносить деньги на собственные подарки');
+    if (user.id === wish.owner.id) {
+      throw new BadRequestException(
+        'Можно вносить средства только на подарки других пользователей',
+      );
+    } else if (amount + wish.raised > wish.price) {
+      throw new BadRequestException(
+        'Сумма вносимых средств должна быть меньше стоимости подарка',
+      );
     }
 
-    const raised = item.raised + amount;
-
-    if (raised > item.price) {
-      throw new ForbiddenException(`Сумма взноса превышает сумму остатка стоимости подарка`);
-    }
-
-    const offer  = await this.offerRepository.create({
+    const newOffer = this.offersRepository.create({
       amount,
       hidden,
+      item: wish,
       user,
-      item,
     });
 
-    await queryRunner(this.dataSource, [
-      this.wishesService.updateRaised(itemId, raised),
-      this.offerRepository.save(offer ),
-    ]);
-
-    return offer;
+    await this.wishesService.updateRaisedAmount(wish, amount);
+    await this.offersRepository.save(newOffer);
+    return newOffer;
   }
 
-  async getOffers(): Promise<Offer[]> {
-    return this.offerRepository.find({ relations: { user: true, item: true } });
+  // находим офферы
+  findAll() {
+    return this.offersRepository.find({
+      relations: {
+        user: true,
+        item: true,
+      },
+    });
   }
 
-  async getById(id: number): Promise<Offer> {
-    const offer = await this.offerRepository.findOne({
+  // находим оффер по id
+  findOne(id: number) {
+    return this.offersRepository.findOne({
       where: { id },
-      relations: { user: true, item: true },
+      relations: {
+        user: true,
+        item: true,
+      },
     });
+  }
 
-    if (!offer) {
-      throw new NotFoundException('Заявка не найдена');
-    }
-
-    return offer;
+  // удаляем оффер
+  async removeOne(id: number) {
+    await this.offersRepository.delete(id);
   }
 }

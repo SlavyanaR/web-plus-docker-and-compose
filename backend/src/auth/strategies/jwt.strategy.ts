@@ -1,8 +1,10 @@
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PassportStrategy } from '@nestjs/passport';
+
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { UsersService } from '../users/users.service';
+
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,15 +14,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get<string>('jwt.key'),
+      secretOrKey: configService.get<string>('jwt.secret'),
     });
   }
 
   async validate(jwtPayload: { sub: number }) {
-    const user = await this.usersService.findById(jwtPayload.sub);
-
+    const user = await this.usersService.findOneById(jwtPayload.sub);
     if (!user) {
-      throw new UnauthorizedException('Пользователь не найден или неверный пароль');
+      throw new UnauthorizedException('Некорректная пара логин и пароль');
     }
 
     return user;

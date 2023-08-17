@@ -1,16 +1,21 @@
 import {
-  CreateDateColumn,
+  Entity,
   PrimaryGeneratedColumn,
+  CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { IsDate } from 'class-validator';
 
-export abstract class Base {
+@Entity()
+export class DefaultEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
   @CreateDateColumn()
+  @IsDate()
   createdAt: Date;
 
   @UpdateDateColumn()
+  @IsDate()
   updatedAt: Date;
 }

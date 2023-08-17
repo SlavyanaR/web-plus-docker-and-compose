@@ -1,35 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from 'src/users/users.service';
+
+import * as bcrypt from 'bcrypt';
+
 import { User } from '../users/entities/user.entity';
-import { HashService } from '../hash/hash.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly usersService: UsersService,
-    private readonly hashService: HashService,
+    private jwtService: JwtService,
+    private usersService: UsersService,
   ) {}
 
+  // генерируем токен
   auth(user: User) {
     const payload = { sub: user.id };
 
     return { access_token: this.jwtService.sign(payload) };
   }
 
-  async validateUser(
-    username: string,
-    password: string,
-  ): Promise<User | null> {
-    const user = await this.usersService.findOne(username);
+  // валидирвем введенный пароль с паролем в базе
+  async validatePassword(username: string, password: string) {
+    const user = await this.usersService.findOneWithPasswordAndEmail(username);
 
-    if (user && user.password) {
-      const isVerified = await this.hashService.verify(password, user.password);
-
-      return isVerified ? user : null;
+    if (user && (await bcrypt.compare(password, user.password))) {
+      // eslint-disable-next-line
+      const { password, ...result } = user;
+      return result;
     }
-
     return null;
   }
 }

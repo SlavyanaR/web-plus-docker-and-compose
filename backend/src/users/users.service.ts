@@ -1,98 +1,131 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Like, Repository } from 'typeorm';
-import { HashService } from '../hash/hash.service';
+import { ConfigService } from '@nestjs/config';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+
 import { User } from './entities/user.entity';
+import { FindUsersDto } from './dto/find-users.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Wish } from '../wishes/entities/wish.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Wish)
-    private readonly wishRepository: Repository<Wish>,
-    private readonly hashService: HashService,
+    private readonly usersRepository: Repository<User>,
+    private readonly configService: ConfigService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    const password = await this.hashService.generate(
+  // создание пользователя
+  async create(createUserDto: CreateUserDto) {
+    const hash = await bcrypt.hash(
       createUserDto.password,
+      this.configService.get('saltRound'),
     );
-
-    const newUser = await this.userRepository.create({
+    const newUser = this.usersRepository.create({
       ...createUserDto,
-      password,
+      password: hash,
     });
-
-    return this.userRepository.save(newUser).catch((e) => {
-      if (e.code ==  '23505') {
-        throw new BadRequestException( 'Пользователь с таким email или username уже зарегистрирован');
-      }
-
-      return e;
-    });
-  }
-
-  async findById(id: number): Promise<User> {
-    const user = await this.userRepository.findOneBy({ id });
-
-    if (!user) {
-      throw new NotFoundException('Пользователь не найден');
-    }
-
+    const user = await this.usersRepository.save(newUser);
+    delete user.password;
     return user;
   }
 
-  async findOne(username: string): Promise<User> {
-    const user = await this.userRepository.findOneBy({ username });
+  // найти всех пользователей
+  async findAll() {
+    return await this.usersRepository.find();
+  }
+  // найти пользователя
+  async findOne(query) {
+    return await this.usersRepository.findOne(query);
+  }
 
+  // найти пользователя по id
+  async findOneById(id: number) {
+    const user = this.findOne({
+      where: { id },
+    });
     if (!user) {
-      throw new NotFoundException('Пользователь не найден');
+      throw new NotFoundException('такой пользователь не существует');
     }
-
     return user;
   }
 
-  async findMany(query: string): Promise<User[]> {
-    const likeQuery = Like(`%${query}%`);
+  // найти пользователя по имени
+  async findOneByUsername(username: string) {
+    const user = this.findOne({
+      where: { username },
+    });
+    if (!user) {
+      throw new NotFoundException('такой пользователь не существует');
+    }
+    return user;
+  }
 
-    return this.userRepository.find({
-      where: [{ username: likeQuery }, { email: likeQuery }],
+  // найти пользователя по почте
+  async findMany(findUsersDto: FindUsersDto) {
+    const { query } = findUsersDto;
+    return await this.usersRepository.find({
+      where: [{ email: query }, { username: query }],
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+  // обновить инфу пользователя
+  async updateOne(id: number, updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
-      updateUserDto.password = await this.hashService.generate(
+      const hash = await bcrypt.hash(
         updateUserDto.password,
+        this.configService.get('saltRound'),
       );
+      updateUserDto = { ...updateUserDto, password: hash };
     }
-
-    await this.userRepository.update({ id }, updateUserDto).catch((e) => {
-      if (e.code == '23505') {
-        throw new BadRequestException(  'Пользователь с таким email или username уже зарегистрирован');
-      }
-
-      return e;
-    });
-
-    return this.userRepository.findOneBy({ id });
+    await this.usersRepository.update(id, updateUserDto);
+    return this.findOneById(id);
   }
 
-  async findUserWishes(id: number): Promise<Wish[]> {
-    return this.wishRepository.find({
-      where: { owner: { id } },
+  // удалить пользователя
+  async removeOne(id: number) {
+    await this.usersRepository.delete({ id });
+  }
+
+  // найти пожелание пользователя по имени
+  async getUserWishesByUsername(username: string) {
+    const user = await this.findOne({
+      where: { username },
       relations: {
-        owner: true,
-        offers: true,
+        wishes: { owner: true, offers: true },
       },
     });
+    return user.wishes;
+  }
+
+  // найти пожелание пользователя по id
+  async getUserWishesById(id: number) {
+    const user = await this.findOne({
+      where: { id },
+      relations: {
+        wishes: { owner: true, offers: true },
+      },
+    });
+    return user.wishes;
+  }
+
+  // найти пользователя
+  async findOneWithPasswordAndEmail(username: string) {
+    const user = await this.usersRepository.findOne({
+      where: { username },
+      select: [
+        'id',
+        'password',
+        'email',
+        'createdAt',
+        'updatedAt',
+        'about',
+        'avatar',
+      ],
+    });
+    if (!user) throw new NotFoundException('такой пользователь не существует');
+    return user;
   }
 }

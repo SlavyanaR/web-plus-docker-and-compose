@@ -1,46 +1,58 @@
-import { Exclude, Expose } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, IsUrl, Length, MaxLength } from 'class-validator';
-import { Offer } from '../../offers/entities/offer.entity';
-import { Base } from '../../utils/base-entity';
-import { Wish } from '../../wishes/entities/wish.entity';
-import { Wishlist } from '../../wishlistlists/entities/wishlist.entity';
 import { Column, Entity, OneToMany } from 'typeorm';
-import { GROUP_USER } from '../../utils/constants';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsUrl,
+  Length,
+} from 'class-validator';
+
+import { DefaultEntity } from 'src/common/entities/default.entity';
+
+import { Offer } from 'src/offers/entities/offer.entity';
+import { Wish } from 'src/wishes/entities/wish.entity';
+import { Wishlist } from 'src/wishlists/entities/wishlist.entity';
 
 @Entity()
-export class User extends Base {
+export class User extends DefaultEntity {
+  // имя
   @Column({ unique: true })
-  @IsString()
   @Length(2, 30)
+  @IsNotEmpty()
   username: string;
 
+  // о себе
   @Column({ default: 'Пока ничего не рассказал о себе' })
-  @IsOptional()
-  @IsString()
   @Length(2, 200)
+  @IsOptional()
   about: string;
 
+  // аватар
   @Column({ default: 'https://i.pravatar.cc/300' })
-  @IsOptional()
   @IsUrl()
+  @IsOptional()
   avatar: string;
 
-  @Column({ unique: true })
-  @Expose({ groups: [GROUP_USER] })
+  // почта
+  @Column({ unique: true, select: false })
   @IsEmail()
+  @IsNotEmpty()
   email: string;
 
-  @Column()
-  @IsString()
-  @Exclude()
+  // пароль
+  @Column({ unique: true })
+  @IsNotEmpty()
   password: string;
 
+  // список желаемых подарков
   @OneToMany(() => Wish, (wish) => wish.owner)
   wishes: Wish[];
 
+  // список подарков, на которые скидывается юзер
   @OneToMany(() => Offer, (offer) => offer.user)
   offers: Offer[];
 
+  // список вишлистов, юзера
   @OneToMany(() => Wishlist, (wishlist) => wishlist.owner)
-  wishlists: Wishlist[];
+  wishlist: Wishlist[];
 }
