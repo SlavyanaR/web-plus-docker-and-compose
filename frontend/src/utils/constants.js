@@ -1,4 +1,4 @@
-export const URL = "https://api.slavyanar.students.nomoredomains.xyz/";
+export const URL = "http://api.slavyanar.students.nomoredomains.xyz";
 
 export const MINIMUM_PASSWORD_LENGTH = 3;
 export const MINIMUM_USERNAME_LENGTH = 3;
