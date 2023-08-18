@@ -3,9 +3,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build
+RUN npm run build\
+&& rm -rf ./scr\
+&& rm -rf ./node_module
 
-FROM node:16-alpine AS production
+FROM node:latest AS production
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund --omit=dev && npm i --no-audit --no-fund -g pm2
